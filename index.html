@@ -234,7 +234,7 @@
         <div class="card-title">Mark Attendance</div>
         <div class="field"><label>Site / Location Description</label><input type="text" id="locationDesc" placeholder="e.g. Innotek Factory – Gate 2"></div>
         <button class="btn btn-wa" onclick="markAttendance()">
-            <span>📲</span> Mark Attendance &amp; Send via WhatsApp
+            <span>📲</span> Mark Attendance
         </button>
         <button class="btn btn-outline" style="margin-top:10px;" onclick="showReportUI()">
             📋 View Attendance Report
@@ -354,7 +354,7 @@ ${mapLink}
 
             showToast('✅ Attendance saved! Opening WhatsApp…');
             setTimeout(() => {
-                window.location.href = `https://wa.me/919823038877?text=${encodeURIComponent(msg)}`;
+                window.location.href = `whatsapp://send?phone=919823038877&text=${encodeURIComponent(msg)}`;
             }, 800);
 
         }, () => showToast('❌ Location access denied. Please allow location.'));
@@ -395,13 +395,13 @@ ${mapLink}
         }
 
         let html = `<table class="report-table">
-            <tr><th>#</th><th>Date &amp; Time</th><th>Site</th><th>Map</th></tr>`;
+            <tr><th>#</th><th>Date &amp; Time</th><th>Site</th><th>Map Link</th></tr>`;
         logs.forEach((log, i) => {
             html += `<tr>
                 <td style="color:#9ca3af;">${i + 1}</td>
                 <td>${formatDateTime(log.time)}</td>
                 <td>${log.desc}</td>
-                <td><a href="${log.link}" target="_blank">📍 View</a></td>
+                <td style="font-size:10px;word-break:break-all;color:#2563eb;">${log.link}</td>
             </tr>`;
         });
         html += `</table>`;
