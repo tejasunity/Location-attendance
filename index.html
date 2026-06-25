@@ -11,39 +11,36 @@
         button { background: #007bff; color: white; border: none; font-weight: bold; cursor: pointer; }
         .btn-wa { background: #25D366; }
         .hidden { display: none; }
-        .static-info { background: #f9f9f9; padding: 10px; border-left: 4px solid #007bff; margin: 10px 0; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        .static-info { background: #e9ecef; padding: 10px; border-radius: 5px; margin: 10px 0; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
     </style>
 </head>
 <body>
 
     <div id="loginPage" class="card">
         <h2>Initial Setup</h2>
-        <input type="text" id="name" placeholder="Name">
-        <input type="email" id="email" placeholder="Email">
+        <input type="text" id="name" placeholder="Full Name">
+        <input type="email" id="email" placeholder="Email Address">
         <input type="text" id="whatsapp" placeholder="WhatsApp Number">
         <button onclick="saveUser()">Save & Continue</button>
     </div>
 
     <div id="appPage" class="hidden">
         <div class="card">
-            <h3>User Profile</h3>
+            <h3>Identity Verified</h3>
             <div id="profileView" class="static-info"></div>
             <hr>
-            <input type="text" id="locationDesc" placeholder="Where am I? (e.g. Site Office)">
-            <button class="btn-wa" onclick="markAttendance()">Mark Attendance & Share</button>
+            <input type="text" id="locationDesc" placeholder="Site Location (e.g. Dam Site)">
+            <button class="btn-wa" id="attendanceBtn" onclick="markAttendance()">Mark & Lock Attendance</button>
             <button onclick="showReportUI()">Generate Report</button>
         </div>
     </div>
 
     <div id="reportPage" class="hidden">
         <div class="card">
-            <h3>Date Range</h3>
-            <input type="date" id="startDate">
-            <input type="date" id="endDate">
-            <button onclick="generateReport()">Apply Filter</button>
-            <button style="background: #6c757d;" onclick="window.print()">Print/Save as PDF</button>
+            <h3>Attendance Records</h3>
+            <button style="background: #6c757d;" onclick="window.print()">Export/Print PDF</button>
             <button style="background: #dc3545;" onclick="goBack()">Back</button>
         </div>
         <div id="reportContent"></div>
@@ -54,71 +51,58 @@
 
         if (localStorage.getItem('user')) {
             showDashboard();
-            requestLocPermission();
-        }
-
-        function requestLocPermission() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(pos => { currentPos = pos; }, null, { enableHighAccuracy: true });
-            }
+            navigator.geolocation.getCurrentPosition(pos => { currentPos = pos; }, null, { enableHighAccuracy: true });
         }
 
         function saveUser() {
-            const user = { 
-                name: document.getElementById('name').value, 
-                email: document.getElementById('email').value, 
-                whatsapp: document.getElementById('whatsapp').value 
-            };
+            const user = { name: document.getElementById('name').value, email: document.getElementById('email').value, whatsapp: document.getElementById('whatsapp').value };
             localStorage.setItem('user', JSON.stringify(user));
-            showDashboard();
-            requestLocPermission();
+            location.reload();
         }
 
         function showDashboard() {
             const user = JSON.parse(localStorage.getItem('user'));
             document.getElementById('loginPage').classList.add('hidden');
             document.getElementById('appPage').classList.remove('hidden');
-            document.getElementById('profileView').innerHTML = `
-                <strong>Name:</strong> ${user.name}<br>
-                <strong>Email:</strong> ${user.email}<br>
-                <strong>WhatsApp:</strong> ${user.whatsapp}
-            `;
+            document.getElementById('profileView').innerHTML = `<strong>${user.name}</strong><br>${user.email}<br>${user.whatsapp}`;
         }
 
         function markAttendance() {
-            if (!currentPos) { alert("Location not ready. Please try again."); return; }
+            if (!currentPos) { alert("Location not ready. Please refresh."); return; }
             const user = JSON.parse(localStorage.getItem('user'));
-            const desc = document.getElementById('locationDesc').value || 'N/A';
-            const mapLink = `https://www.google.com/maps?q=${currentPos.coords.latitude},${currentPos.coords.longitude}`;
+            const desc = document.getElementById('locationDesc').value || 'General Site';
             
-            const entry = { timestamp: new Date().toISOString(), date: new Date().toLocaleDateString(), name: user.name, desc: desc, link: mapLink };
+            const lat = currentPos.coords.latitude;
+            const lon = currentPos.coords.longitude;
+            const mapURL = `https://www.google.com/maps?q=${lat},${lon}`;
+            
+            const entry = { timestamp: new Date().toLocaleString(), name: user.name, desc: desc, link: mapURL };
             let logs = JSON.parse(localStorage.getItem('logs') || '[]');
             logs.push(entry);
             localStorage.setItem('logs', JSON.stringify(logs));
             
-            // Uneditable "Card" format for WhatsApp
-            const msg = `*ATTENDANCE CARD*\n--------------------\n*Name:* ${user.name}\n*Site:* ${desc}\n*Date:* ${entry.date}\n*Location:* ${mapLink}\n--------------------`;
+            // The WhatsApp message now uses the friendly text
+            const msg = `*OFFICIAL ATTENDANCE LOG*\n--------------------\n*Name:* ${entry.name}\n*Site:* ${entry.desc}\n*Time:* ${entry.timestamp}\n*Location:* [Click here to view site location](${entry.link})\n--------------------\n_System Generated: Non-Editable_`;
+            
             window.open(`https://wa.me/9823038877?text=${encodeURIComponent(msg)}`);
+            alert("Attendance recorded successfully.");
         }
 
         function showReportUI() {
             document.getElementById('appPage').classList.add('hidden');
             document.getElementById('reportPage').classList.remove('hidden');
+            const logs = JSON.parse(localStorage.getItem('logs') || '[]');
+            let html = `<table><tr><th>Time</th><th>Site</th><th>Map</th></tr>`;
+            logs.forEach(log => {
+                html += `<tr><td>${log.timestamp}</td><td>${log.desc}</td><td><a href="${log.link}" target="_blank">View Map</a></td></tr>`;
+            });
+            html += `</table>`;
+            document.getElementById('reportContent').innerHTML = html;
         }
 
         function goBack() {
             document.getElementById('reportPage').classList.add('hidden');
             document.getElementById('appPage').classList.remove('hidden');
-        }
-
-        function generateReport() {
-            const logs = JSON.parse(localStorage.getItem('logs') || '[]');
-            let html = `<table><tr><th>Date</th><th>Name</th><th>Location</th><th>Link</th></tr>`;
-            logs.forEach(log => {
-                html += `<tr><td>${log.date}</td><td>${log.name}</td><td>${log.desc}</td><td><a href="${log.link}" target="_blank">Map</a></td></tr>`;
-            });
-            html += `</table>`;
-            document.getElementById('reportContent').innerHTML = html;
         }
     </script>
 </body>
