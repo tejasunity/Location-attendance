@@ -2,122 +2,433 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
     <title>Attendance Manager</title>
     <style>
-        body { font-family: Calibri, sans-serif; padding: 15px; font-size: 14px; }
-        .card { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 15px; }
-        input, button { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        button { background: #007bff; color: white; border: none; font-weight: bold; cursor: pointer; }
-        .btn-wa { background: #25D366; }
-        .btn-csv { background: #ff9800; }
-        .hidden { display: none; }
-        .user-info { background: #f0f0f0; padding: 10px; border-radius: 5px; margin-bottom: 10px; }
-        table { width: 100%; border-collapse: collapse; font-size: 12px; }
-        th, td { border: 1px solid #999; padding: 4px; text-align: left; }
-        th { background-color: #eee; }
-        @media print {
-            .no-print { display: none; }
-            body { font-family: Calibri, sans-serif; }
-            @page { size: A4 portrait; margin: 10mm; }
+        :root {
+            --navy: #1a2b4a;
+            --blue: #2563eb;
+            --blue-light: #eff6ff;
+            --blue-mid: #dbeafe;
+            --grey-1: #f8f9fb;
+            --grey-2: #e5e7eb;
+            --grey-3: #9ca3af;
+            --grey-4: #4b5563;
+            --white: #ffffff;
+            --success: #16a34a;
+            --danger: #dc2626;
+            --warning: #d97706;
+            --shadow: 0 2px 12px rgba(26,43,74,0.10);
+            --radius: 10px;
         }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', Calibri, sans-serif;
+            background: var(--grey-1);
+            color: var(--navy);
+            min-height: 100vh;
+        }
+
+        /* ── TOP HEADER BAR ── */
+        .app-header {
+            background: var(--navy);
+            color: white;
+            padding: 14px 18px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+        }
+        .app-header .logo {
+            width: 36px; height: 36px;
+            background: var(--blue);
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; font-weight: 700; color: white;
+            letter-spacing: -0.5px;
+        }
+        .app-header .title-block h1 {
+            font-size: 15px; font-weight: 700; letter-spacing: 0.3px;
+        }
+        .app-header .title-block p {
+            font-size: 11px; color: #93c5fd; margin-top: 1px;
+        }
+
+        /* ── MAIN WRAPPER ── */
+        .page { padding: 18px; max-width: 480px; margin: 0 auto; }
+        .hidden { display: none !important; }
+
+        /* ── CARDS ── */
+        .card {
+            background: var(--white);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 20px;
+            margin-bottom: 16px;
+            border: 1px solid var(--grey-2);
+        }
+        .card-title {
+            font-size: 11px; font-weight: 700;
+            letter-spacing: 1.2px; text-transform: uppercase;
+            color: var(--grey-3); margin-bottom: 14px;
+        }
+
+        /* ── INPUTS ── */
+        .field { margin-bottom: 12px; }
+        .field label {
+            display: block; font-size: 11px; font-weight: 600;
+            color: var(--grey-4); margin-bottom: 4px; letter-spacing: 0.4px;
+        }
+        .field input {
+            width: 100%; padding: 10px 12px;
+            border: 1.5px solid var(--grey-2);
+            border-radius: 7px; font-size: 14px;
+            color: var(--navy); background: var(--grey-1);
+            outline: none; transition: border-color 0.2s;
+            font-family: inherit;
+        }
+        .field input:focus { border-color: var(--blue); background: white; }
+
+        /* ── BUTTONS ── */
+        .btn {
+            width: 100%; padding: 12px;
+            border: none; border-radius: 8px;
+            font-size: 14px; font-weight: 700;
+            cursor: pointer; letter-spacing: 0.3px;
+            font-family: inherit;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            transition: opacity 0.15s, transform 0.1s;
+        }
+        .btn:active { transform: scale(0.98); opacity: 0.9; }
+        .btn + .btn { margin-top: 10px; }
+        .btn-primary { background: var(--blue); color: white; }
+        .btn-wa { background: #25D366; color: white; }
+        .btn-pdf { background: var(--navy); color: white; }
+        .btn-csv { background: var(--warning); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-outline {
+            background: white; color: var(--navy);
+            border: 1.5px solid var(--grey-2);
+        }
+
+        /* ── USER INFO PILL ── */
+        .user-pill {
+            background: var(--blue-light);
+            border: 1px solid var(--blue-mid);
+            border-radius: 8px;
+            padding: 12px 14px;
+            display: flex; align-items: center; gap: 10px;
+            margin-bottom: 16px;
+        }
+        .user-avatar {
+            width: 38px; height: 38px;
+            background: var(--blue); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; font-weight: 700; color: white;
+            flex-shrink: 0;
+        }
+        .user-details strong { font-size: 14px; display: block; color: var(--navy); }
+        .user-details span { font-size: 11px; color: var(--grey-4); }
+
+        /* ── STATUS TOAST ── */
+        #toast {
+            position: fixed; bottom: 24px; left: 50%;
+            transform: translateX(-50%);
+            background: var(--navy); color: white;
+            padding: 10px 20px; border-radius: 20px;
+            font-size: 13px; font-weight: 600;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+            opacity: 0; transition: opacity 0.3s;
+            pointer-events: none; z-index: 999;
+            white-space: nowrap;
+        }
+        #toast.show { opacity: 1; }
+
+        /* ── REPORT TABLE ── */
+        .report-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+        .report-table th {
+            background: var(--navy); color: white;
+            padding: 8px 10px; text-align: left;
+            font-size: 11px; letter-spacing: 0.5px;
+        }
+        .report-table th:first-child { border-radius: 6px 0 0 0; }
+        .report-table th:last-child { border-radius: 0 6px 0 0; }
+        .report-table td { padding: 8px 10px; border-bottom: 1px solid var(--grey-2); color: var(--grey-4); }
+        .report-table tr:nth-child(even) td { background: var(--grey-1); }
+        .report-table a { color: var(--blue); text-decoration: none; font-weight: 600; }
+
+        .report-meta {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 10px; margin-bottom: 14px;
+        }
+        .meta-box {
+            background: var(--blue-light);
+            border: 1px solid var(--blue-mid);
+            border-radius: 7px; padding: 10px 12px;
+        }
+        .meta-box .label { font-size: 10px; color: var(--grey-3); font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
+        .meta-box .value { font-size: 15px; font-weight: 700; color: var(--navy); margin-top: 2px; }
+
+        /* ── PRINT STYLES ── */
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white; font-family: Calibri, sans-serif; }
+            .app-header { position: static; box-shadow: none; }
+            .card { box-shadow: none; border: 1px solid #ddd; break-inside: avoid; }
+            .page { padding: 0; }
+            @page { size: A4 portrait; margin: 12mm; }
+
+            .print-report-header {
+                display: flex !important;
+                align-items: center;
+                justify-content: space-between;
+                border-bottom: 3px solid #1a2b4a;
+                padding-bottom: 12px;
+                margin-bottom: 18px;
+            }
+            .print-report-header .co-name {
+                font-size: 20px; font-weight: 700; color: #1a2b4a;
+            }
+            .print-report-header .doc-label {
+                font-size: 11px; color: #9ca3af; margin-top: 2px;
+            }
+            .print-report-header .print-date {
+                font-size: 11px; color: #4b5563; text-align: right;
+            }
+        }
+
+        .print-report-header { display: none; }
     </style>
 </head>
 <body>
 
-    <div id="loginPage" class="card">
-        <h2>Initial Setup</h2>
-        <input type="text" id="name" placeholder="Full Name">
-        <input type="email" id="email" placeholder="Email">
-        <input type="text" id="whatsapp" placeholder="WhatsApp Number">
-        <button onclick="saveUser()">Save</button>
+<!-- HEADER -->
+<div class="app-header">
+    <div class="logo">A</div>
+    <div class="title-block">
+        <h1>Attendance Manager</h1>
+        <p>Field Attendance Tracking</p>
+    </div>
+</div>
+
+<!-- SETUP PAGE -->
+<div id="loginPage" class="page">
+    <div class="card" style="margin-top:10px;">
+        <div class="card-title">Initial Setup</div>
+        <div class="field"><label>Full Name</label><input type="text" id="name" placeholder="e.g. Tejas Pathak"></div>
+        <div class="field"><label>Email Address</label><input type="email" id="email" placeholder="you@company.com"></div>
+        <div class="field"><label>WhatsApp Number</label><input type="text" id="whatsapp" placeholder="+91 98XXXXXXXX"></div>
+        <button class="btn btn-primary" onclick="saveUser()">💾 Save &amp; Continue</button>
+    </div>
+</div>
+
+<!-- MAIN APP PAGE -->
+<div id="appPage" class="page hidden">
+    <div id="userInfo"></div>
+    <div class="card">
+        <div class="card-title">Mark Attendance</div>
+        <div class="field"><label>Site / Location Description</label><input type="text" id="locationDesc" placeholder="e.g. Innotek Factory – Gate 2"></div>
+        <button class="btn btn-wa" onclick="markAttendance()">
+            <span>📲</span> Mark Attendance &amp; Send via WhatsApp
+        </button>
+        <button class="btn btn-outline" style="margin-top:10px;" onclick="showReportUI()">
+            📋 View Attendance Report
+        </button>
+    </div>
+</div>
+
+<!-- REPORT PAGE -->
+<div id="reportPage" class="page hidden">
+
+    <!-- Print-only header -->
+    <div class="print-report-header">
+        <div>
+            <div class="co-name">Attendance Manager</div>
+            <div class="doc-label">OFFICIAL ATTENDANCE REPORT</div>
+        </div>
+        <div class="print-date" id="printDate"></div>
     </div>
 
-    <div id="appPage" class="hidden">
-        <div id="userInfo" class="user-info"></div>
-        <div class="card">
-            <input type="text" id="locationDesc" placeholder="Site Location">
-            <button class="btn-wa" onclick="markAttendance()">Mark Attendance</button>
-            <button onclick="showReportUI()">Generate Report</button>
-        </div>
+    <div class="no-print" style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
+        <button class="btn btn-pdf no-print" style="flex:1;" onclick="window.print()">🖨️ Export PDF</button>
+        <button class="btn btn-csv no-print" style="flex:1;" onclick="exportCSV()">📊 Export CSV</button>
+        <button class="btn btn-outline no-print" style="flex:1;" onclick="goBack()">← Back</button>
     </div>
 
-    <div id="reportPage" class="hidden">
-        <div class="no-print">
-            <button onclick="window.print()">Export to PDF</button>
-            <button class="btn-csv" onclick="exportCSV()">Export to CSV</button>
-            <button style="background: #dc3545;" onclick="goBack()">Back</button>
-        </div>
-        <div id="reportHeader" class="user-info"></div>
+    <div class="card">
+        <div id="reportUserBlock"></div>
+        <div id="reportMeta" class="report-meta"></div>
         <div id="reportContent"></div>
     </div>
+</div>
 
-    <script>
-        if (localStorage.getItem('user')) showDashboard();
+<div id="toast"></div>
 
-        function saveUser() {
-            const user = { name: document.getElementById('name').value, email: document.getElementById('email').value, whatsapp: document.getElementById('whatsapp').value };
-            localStorage.setItem('user', JSON.stringify(user));
-            location.reload();
-        }
+<script>
+    if (localStorage.getItem('user')) showDashboard();
 
-        function showDashboard() {
+    function showToast(msg, duration = 2500) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), duration);
+    }
+
+    function saveUser() {
+        const name = document.getElementById('name').value.trim();
+        const email = document.getElementById('email').value.trim();
+        const wa = document.getElementById('whatsapp').value.trim();
+        if (!name || !email) return showToast('⚠️ Name and email are required.');
+        const user = { name, email, whatsapp: wa };
+        localStorage.setItem('user', JSON.stringify(user));
+        location.reload();
+    }
+
+    function getInitials(name) {
+        return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    }
+
+    function showDashboard() {
+        const user = JSON.parse(localStorage.getItem('user'));
+        document.getElementById('loginPage').classList.add('hidden');
+        document.getElementById('appPage').classList.remove('hidden');
+        document.getElementById('userInfo').innerHTML = `
+            <div class="user-pill">
+                <div class="user-avatar">${getInitials(user.name)}</div>
+                <div class="user-details">
+                    <strong>${user.name}</strong>
+                    <span>${user.email} &nbsp;·&nbsp; ${user.whatsapp || 'No WA'}</span>
+                </div>
+            </div>`;
+    }
+
+    function formatDateTime(dateStr) {
+        const d = new Date(dateStr);
+        return d.toLocaleString('en-IN', {
+            day: '2-digit', month: 'short', year: 'numeric',
+            hour: '2-digit', minute: '2-digit', hour12: true
+        });
+    }
+
+    function markAttendance() {
+        if (!navigator.geolocation) return showToast('⚠️ Geolocation not supported.');
+        showToast('📍 Getting your location…');
+        navigator.geolocation.getCurrentPosition(pos => {
             const user = JSON.parse(localStorage.getItem('user'));
-            document.getElementById('loginPage').classList.add('hidden');
-            document.getElementById('appPage').classList.remove('hidden');
-            document.getElementById('userInfo').innerHTML = `<strong>${user.name}</strong> | ${user.email} | ${user.whatsapp}`;
+            const lat = pos.coords.latitude.toFixed(6);
+            const lng = pos.coords.longitude.toFixed(6);
+            const mapLink = `https://maps.google.com/?q=${lat},${lng}`;
+            const now = new Date();
+            const entry = {
+                time: now.toISOString(),
+                desc: document.getElementById('locationDesc').value.trim() || 'N/A',
+                lat, lng, link: mapLink
+            };
+
+            let logs = JSON.parse(localStorage.getItem('logs') || '[]');
+            logs.push(entry);
+            localStorage.setItem('logs', JSON.stringify(logs));
+
+            // Formatted WhatsApp message — structured card style
+            const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+            const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+            const msg =
+`━━━━━━━━━━━━━━━━━━━━
+📋 *ATTENDANCE RECORD*
+━━━━━━━━━━━━━━━━━━━━
+👤 *Name:*  ${user.name}
+🏗️ *Site:*   ${entry.desc}
+📅 *Date:*  ${dateStr}
+🕐 *Time:*  ${timeStr}
+📍 *GPS:*   ${lat}, ${lng}
+━━━━━━━━━━━━━━━━━━━━
+🗺️ *Map:*
+${mapLink}
+━━━━━━━━━━━━━━━━━━━━`;
+
+            showToast('✅ Attendance saved! Opening WhatsApp…');
+            setTimeout(() => {
+                window.location.href = `https://wa.me/919823038877?text=${encodeURIComponent(msg)}`;
+            }, 800);
+
+        }, () => showToast('❌ Location access denied. Please allow location.'));
+    }
+
+    function showReportUI() {
+        document.getElementById('appPage').classList.add('hidden');
+        document.getElementById('reportPage').classList.remove('hidden');
+
+        const user = JSON.parse(localStorage.getItem('user'));
+        const logs = JSON.parse(localStorage.getItem('logs') || '[]');
+        const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
+
+        document.getElementById('printDate').innerHTML = `Generated on: ${today}<br>Employee: ${user.name}`;
+
+        document.getElementById('reportUserBlock').innerHTML = `
+            <div class="user-pill" style="margin-bottom:14px;">
+                <div class="user-avatar">${getInitials(user.name)}</div>
+                <div class="user-details">
+                    <strong>${user.name}</strong>
+                    <span>${user.email} &nbsp;·&nbsp; ${user.whatsapp || ''}</span>
+                </div>
+            </div>`;
+
+        document.getElementById('reportMeta').innerHTML = `
+            <div class="meta-box">
+                <div class="label">Total Entries</div>
+                <div class="value">${logs.length}</div>
+            </div>
+            <div class="meta-box">
+                <div class="label">Report Date</div>
+                <div class="value" style="font-size:12px;">${today}</div>
+            </div>`;
+
+        if (logs.length === 0) {
+            document.getElementById('reportContent').innerHTML = `<p style="text-align:center;color:#9ca3af;padding:20px;">No attendance records yet.</p>`;
+            return;
         }
 
-        function markAttendance() {
-            if (!navigator.geolocation) return alert("Geolocation not supported.");
-            navigator.geolocation.getCurrentPosition(pos => {
-                const user = JSON.parse(localStorage.getItem('user'));
-                const mapLink = `https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`;
-                const entry = { time: new Date().toLocaleString(), desc: document.getElementById('locationDesc').value || 'N/A', link: mapLink };
-                
-                let logs = JSON.parse(localStorage.getItem('logs') || '[]');
-                logs.push(entry);
-                localStorage.setItem('logs', JSON.stringify(logs));
-                
-                // Fixed: Explicitly opening WhatsApp after saving
-                const msg = `Attendance: ${user.name}, Site: ${entry.desc}, Loc: ${mapLink}`;
-                window.location.href = `https://wa.me/9823038877?text=${encodeURIComponent(msg)}`;
-            });
-        }
+        let html = `<table class="report-table">
+            <tr><th>#</th><th>Date &amp; Time</th><th>Site</th><th>Map</th></tr>`;
+        logs.forEach((log, i) => {
+            html += `<tr>
+                <td style="color:#9ca3af;">${i + 1}</td>
+                <td>${formatDateTime(log.time)}</td>
+                <td>${log.desc}</td>
+                <td><a href="${log.link}" target="_blank">📍 View</a></td>
+            </tr>`;
+        });
+        html += `</table>`;
+        document.getElementById('reportContent').innerHTML = html;
+    }
 
-        function showReportUI() {
-            document.getElementById('appPage').classList.add('hidden');
-            document.getElementById('reportPage').classList.remove('hidden');
-            const user = JSON.parse(localStorage.getItem('user'));
-            const logs = JSON.parse(localStorage.getItem('logs') || '[]');
-            
-            // Fixed: Added user info to the report header for PDF printing
-            document.getElementById('reportHeader').innerHTML = `<strong>${user.name}</strong> | ${user.email} | ${user.whatsapp}`;
-            
-            let html = `<h3>Attendance Report</h3><table><tr><th>Time</th><th>Site</th><th>Map</th></tr>`;
-            logs.forEach(log => {
-                html += `<tr><td>${log.time}</td><td>${log.desc}</td><td><a href="${log.link}" target="_blank">View Map</a></td></tr>`;
-            });
-            html += `</table>`;
-            document.getElementById('reportContent').innerHTML = html;
-        }
+    function exportCSV() {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        const logs = JSON.parse(localStorage.getItem('logs') || '[]');
+        let csv = `Attendance Report — ${user.name}\nGenerated: ${new Date().toLocaleString('en-IN')}\n\n`;
+        csv += 'Sr,Date & Time,Site,Latitude,Longitude,Map Link\n';
+        logs.forEach((l, i) => {
+            csv += `${i+1},"${formatDateTime(l.time)}","${l.desc}","${l.lat || ''}","${l.lng || ''}","${l.link}"\n`;
+        });
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `attendance_${user.name?.replace(/ /g, '_') || 'report'}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
 
-        function exportCSV() {
-            const logs = JSON.parse(localStorage.getItem('logs') || '[]');
-            let csv = 'Time,Site,Map\n';
-            logs.forEach(l => csv += `"${l.time}","${l.desc}","${l.link}"\n`);
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'attendance.csv';
-            a.click();
-        }
-
-        function goBack() {
-            document.getElementById('reportPage').classList.add('hidden');
-            document.getElementById('appPage').classList.remove('hidden');
-        }
-    </script>
+    function goBack() {
+        document.getElementById('reportPage').classList.add('hidden');
+        document.getElementById('appPage').classList.remove('hidden');
+    }
+</script>
 </body>
 </html>
