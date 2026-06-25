@@ -203,6 +203,30 @@
         }
 
         .print-report-header { display: none; }
+
+        /* ── RECIPIENT SELECTOR ── */
+        .recipient-list { display: flex; flex-direction: column; gap: 8px; }
+        .recipient-row {
+            display: flex; align-items: center; gap: 12px;
+            padding: 11px 13px;
+            border: 1.5px solid var(--grey-2);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+            background: var(--grey-1);
+        }
+        .recipient-row:has(input:checked) {
+            border-color: var(--blue);
+            background: var(--blue-light);
+        }
+        .recipient-row input[type="checkbox"] {
+            width: 18px; height: 18px;
+            accent-color: var(--blue);
+            flex-shrink: 0; cursor: pointer;
+        }
+        .recipient-info { display: flex; flex-direction: column; gap: 1px; }
+        .recipient-name { font-size: 13px; font-weight: 600; color: var(--navy); }
+        .recipient-num { font-size: 11px; color: var(--grey-3); }
     </style>
 </head>
 <body>
@@ -239,6 +263,33 @@
         <button class="btn btn-outline" style="margin-top:10px;" onclick="showReportUI()">
             📋 View Attendance Report
         </button>
+    </div>
+
+    <div class="card">
+        <div class="card-title">Share Attendance To</div>
+        <div class="recipient-list">
+            <label class="recipient-row">
+                <input type="checkbox" id="rc_sheetal" value="919922924339" checked>
+                <div class="recipient-info">
+                    <span class="recipient-name">Sheetal Madam</span>
+                    <span class="recipient-num">+91 99229 24339</span>
+                </div>
+            </label>
+            <label class="recipient-row">
+                <input type="checkbox" id="rc_santosh" value="918180834806">
+                <div class="recipient-info">
+                    <span class="recipient-name">Santosh Patil</span>
+                    <span class="recipient-num">+91 81808 34806</span>
+                </div>
+            </label>
+            <label class="recipient-row">
+                <input type="checkbox" id="rc_tejas" value="919823038877">
+                <div class="recipient-info">
+                    <span class="recipient-name">Tejas Pathak</span>
+                    <span class="recipient-num">+91 98230 38877</span>
+                </div>
+            </label>
+        </div>
     </div>
 </div>
 
@@ -352,10 +403,30 @@
 ${mapLink}
 ━━━━━━━━━━━━━━━━━━━━`;
 
-            showToast('✅ Attendance saved! Opening WhatsApp…');
-            setTimeout(() => {
-                window.location.href = `whatsapp://send?phone=919823038877&text=${encodeURIComponent(msg)}`;
-            }, 800);
+            // Collect selected recipients
+            const recipients = [];
+            document.querySelectorAll('.recipient-row input[type="checkbox"]:checked').forEach(cb => {
+                recipients.push(cb.value);
+            });
+
+            if (recipients.length === 0) {
+                return showToast('⚠️ Please select at least one recipient.');
+            }
+
+            showToast(`✅ Saved! Sending to ${recipients.length} recipient${recipients.length > 1 ? 's' : ''}…`);
+
+            // Send sequentially — open WhatsApp for each number one after another
+            let idx = 0;
+            function sendNext() {
+                if (idx >= recipients.length) return;
+                const phone = recipients[idx];
+                idx++;
+                setTimeout(() => {
+                    window.location.href = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(msg)}`;
+                    setTimeout(sendNext, 3500);
+                }, idx === 1 ? 800 : 0);
+            }
+            sendNext();
 
         }, () => showToast('❌ Location access denied. Please allow location.'));
     }
