@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -12,11 +11,8 @@
         button { background: #007bff; color: white; border: none; font-weight: bold; cursor: pointer; }
         .btn-wa { background: #25D366; }
         .hidden { display: none; }
-        
-        /* Report specific styles */
         #reportTable { width: 100%; border-collapse: collapse; margin-top: 20px; }
         #reportTable th, #reportTable td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        
         @media print {
             body { font-family: Calibri, sans-serif; }
             .no-print { display: none; }
@@ -26,7 +22,6 @@
 </head>
 <body>
 
-    <!-- Login Section -->
     <div id="loginPage" class="card">
         <h2>Initial Setup</h2>
         <input type="text" id="name" placeholder="Name">
@@ -35,18 +30,15 @@
         <button onclick="saveUser()">Save & Continue</button>
     </div>
 
-    <!-- Dashboard Section -->
     <div id="appPage" class="hidden">
         <div class="card">
             <h3>Welcome, <span id="displayName"></span></h3>
-            <p><strong>Current Location:</strong> <span id="locStatus">Waiting...</span></p>
             <input type="text" id="locationDesc" placeholder="Where am I? (e.g. Site Office)">
             <button class="btn-wa" onclick="markAttendance()">Mark Attendance & Share</button>
             <button onclick="showReportUI()">Generate Report</button>
         </div>
     </div>
 
-    <!-- Report Section -->
     <div id="reportPage" class="hidden">
         <div class="card no-print">
             <h3>Date Range</h3>
@@ -60,14 +52,15 @@
     </div>
 
     <script>
-        // Check Auth
         if (localStorage.getItem('user')) {
             showDashboard();
         }
 
         function saveUser() {
+            const name = document.getElementById('name').value;
+            if(!name) return alert("Please enter your name");
             const user = { 
-                name: document.getElementById('name').value, 
+                name: name, 
                 email: document.getElementById('email').value, 
                 whatsapp: document.getElementById('whatsapp').value 
             };
@@ -84,22 +77,29 @@
         }
 
         function markAttendance() {
-            navigator.geolocation.getCurrentPosition(pos => {
-                const link = `https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`;
-                const entry = {
-                    timestamp: new Date().toISOString(),
-                    date: new Date().toLocaleDateString(),
-                    desc: document.getElementById('locationDesc').value || 'N/A',
-                    link: link
-                };
-                
-                let logs = JSON.parse(localStorage.getItem('logs') || '[]');
-                logs.push(entry);
-                localStorage.setItem('logs', JSON.stringify(logs));
-                
-                const msg = `Attendance Log: ${entry.desc} | Location: ${link}`;
-                window.open(`https://wa.me/9823038877?text=${encodeURIComponent(msg)}`);
-            });
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(pos => {
+                    const lat = pos.coords.latitude;
+                    const lon = pos.coords.longitude;
+                    // Corrected the link syntax below
+                    const link = `https://www.google.com/maps?q=${lat},${lon}`;
+                    const entry = {
+                        timestamp: new Date().toISOString(),
+                        date: new Date().toLocaleDateString(),
+                        desc: document.getElementById('locationDesc').value || 'Location Recorded',
+                        link: link
+                    };
+                    
+                    let logs = JSON.parse(localStorage.getItem('logs') || '[]');
+                    logs.push(entry);
+                    localStorage.setItem('logs', JSON.stringify(logs));
+                    
+                    const msg = `Attendance Log: ${entry.desc} | Location: ${link}`;
+                    window.open(`https://wa.me/9823038877?text=${encodeURIComponent(msg)}`);
+                });
+            } else {
+                alert("Geolocation is not supported by this browser.");
+            }
         }
 
         function showReportUI() {
@@ -113,16 +113,18 @@
         }
 
         function generateReport() {
-            const start = new Date(document.getElementById('startDate').value);
-            const end = new Date(document.getElementById('endDate').value);
+            const startVal = document.getElementById('startDate').value;
+            const endVal = document.getElementById('endDate').value;
+            const start = startVal ? new Date(startVal) : null;
+            const end = endVal ? new Date(endVal) : null;
             const logs = JSON.parse(localStorage.getItem('logs') || '[]');
             
-            let html = `<h3>Attendance Report</h3><table id="reportTable"><tr><th>Date</th><th>Location</th><th>Map Link</th></tr>`;
+            let html = `<h3>Attendance Report</h3><table id="reportTable"><tr><th>Date</th><th>Location</th><th>Map</th></tr>`;
             
             logs.forEach(log => {
                 const logDate = new Date(log.timestamp);
-                if ((isNaN(start) || logDate >= start) && (isNaN(end) || logDate <= end)) {
-                    html += `<tr><td>${log.date}</td><td>${log.desc}</td><td><a href="${log.link}">View Map</a></td></tr>`;
+                if ((!start || logDate >= start) && (!end || logDate <= end)) {
+                    html += `<tr><td>${log.date}</td><td>${log.desc}</td><td><a href="${log.link}" target="_blank">View</a></td></tr>`;
                 }
             });
             html += `</table>`;
