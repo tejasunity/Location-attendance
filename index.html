@@ -296,19 +296,26 @@
 <!-- REPORT PAGE -->
 <div id="reportPage" class="page hidden">
 
-    <!-- Print-only header -->
-    <div class="print-report-header">
-        <div>
-            <div class="co-name">Attendance Manager</div>
-            <div class="doc-label">OFFICIAL ATTENDANCE REPORT</div>
-        </div>
-        <div class="print-date" id="printDate"></div>
+    <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
+        <button class="btn btn-pdf" style="flex:1;" onclick="exportPDF()">🖨️ Export PDF</button>
+        <button class="btn btn-csv" style="flex:1;" onclick="exportCSV()">📊 Export CSV</button>
+        <button class="btn btn-outline" style="flex:1;" onclick="goBack()">← Back</button>
     </div>
 
-    <div class="no-print" style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
-        <button class="btn btn-pdf no-print" style="flex:1;" onclick="window.print()">🖨️ Export PDF</button>
-        <button class="btn btn-csv no-print" style="flex:1;" onclick="exportCSV()">📊 Export CSV</button>
-        <button class="btn btn-outline no-print" style="flex:1;" onclick="goBack()">← Back</button>
+    <!-- Date Filter Card -->
+    <div class="card">
+        <div class="card-title">Date Range Filter</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
+            <div class="field" style="margin-bottom:0;">
+                <label>From</label>
+                <input type="date" id="filterFrom">
+            </div>
+            <div class="field" style="margin-bottom:0;">
+                <label>To</label>
+                <input type="date" id="filterTo">
+            </div>
+        </div>
+        <button class="btn btn-primary" onclick="applyFilter()">Apply Filter</button>
     </div>
 
     <div class="card">
@@ -431,15 +438,40 @@ ${mapLink}
         }, () => showToast('❌ Location access denied. Please allow location.'));
     }
 
+    // ── Filtered logs state ──
+    let filteredLogs = [];
+
     function showReportUI() {
         document.getElementById('appPage').classList.add('hidden');
         document.getElementById('reportPage').classList.remove('hidden');
 
-        const user = JSON.parse(localStorage.getItem('user'));
-        const logs = JSON.parse(localStorage.getItem('logs') || '[]');
-        const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
+        // Default filter: current month
+        const now = new Date();
+        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+        const lastDay  = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        document.getElementById('filterFrom').value = firstDay.toISOString().slice(0, 10);
+        document.getElementById('filterTo').value   = lastDay.toISOString().slice(0, 10);
 
-        document.getElementById('printDate').innerHTML = `Generated on: ${today}<br>Employee: ${user.name}`;
+        applyFilter();
+    }
+
+    function applyFilter() {
+        const user = JSON.parse(localStorage.getItem('user'));
+        const allLogs = JSON.parse(localStorage.getItem('logs') || '[]');
+        const fromVal = document.getElementById('filterFrom').value;
+        const toVal   = document.getElementById('filterTo').value;
+
+        const from = fromVal ? new Date(fromVal + 'T00:00:00') : null;
+        const to   = toVal   ? new Date(toVal   + 'T23:59:59') : null;
+
+        filteredLogs = allLogs.filter(l => {
+            const d = new Date(l.time);
+            if (from && d < from) return false;
+            if (to   && d > to)   return false;
+            return true;
+        });
+
+        const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
 
         document.getElementById('reportUserBlock').innerHTML = `
             <div class="user-pill" style="margin-bottom:14px;">
@@ -450,24 +482,28 @@ ${mapLink}
                 </div>
             </div>`;
 
+        const rangeLabel = (fromVal && toVal)
+            ? `${new Date(fromVal).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})} – ${new Date(toVal).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}`
+            : today;
+
         document.getElementById('reportMeta').innerHTML = `
             <div class="meta-box">
-                <div class="label">Total Entries</div>
-                <div class="value">${logs.length}</div>
+                <div class="label">Entries in Range</div>
+                <div class="value">${filteredLogs.length}</div>
             </div>
             <div class="meta-box">
-                <div class="label">Report Date</div>
-                <div class="value" style="font-size:12px;">${today}</div>
+                <div class="label">Period</div>
+                <div class="value" style="font-size:10px;line-height:1.4;">${rangeLabel}</div>
             </div>`;
 
-        if (logs.length === 0) {
-            document.getElementById('reportContent').innerHTML = `<p style="text-align:center;color:#9ca3af;padding:20px;">No attendance records yet.</p>`;
+        if (filteredLogs.length === 0) {
+            document.getElementById('reportContent').innerHTML = `<p style="text-align:center;color:#9ca3af;padding:20px;">No records in this date range.</p>`;
             return;
         }
 
         let html = `<table class="report-table">
             <tr><th>#</th><th>Date &amp; Time</th><th>Site</th><th>Map Link</th></tr>`;
-        logs.forEach((log, i) => {
+        filteredLogs.forEach((log, i) => {
             html += `<tr>
                 <td style="color:#9ca3af;">${i + 1}</td>
                 <td>${formatDateTime(log.time)}</td>
@@ -479,12 +515,255 @@ ${mapLink}
         document.getElementById('reportContent').innerHTML = html;
     }
 
+    // ── jsPDF Export ──
+    function exportPDF() {
+        if (filteredLogs.length === 0) return showToast('⚠️ No records to export.');
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+        // Dynamically load jsPDF from CDN
+        if (typeof window.jspdf === 'undefined') {
+            showToast('⏳ Loading PDF engine…');
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+            script.onload = () => buildPDF(user);
+            document.head.appendChild(script);
+        } else {
+            buildPDF(user);
+        }
+    }
+
+    function buildPDF(user) {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+        const pageW = 210, pageH = 297;
+        const marginL = 12, marginR = 12, marginT = 14, marginB = 14;
+        const usableW = pageW - marginL - marginR;
+
+        // ── Colour palette ──
+        const navy   = [26,  43,  74];
+        const blue   = [37, 99, 235];
+        const grey1  = [248,249,251];
+        const grey2  = [229,231,235];
+        const grey3  = [156,163,175];
+        const white  = [255,255,255];
+        const black  = [30, 30, 30];
+
+        // ── PAGE 1 HEADER ──
+        // Navy banner
+        doc.setFillColor(...navy);
+        doc.rect(0, 0, pageW, 28, 'F');
+
+        // Title
+        doc.setTextColor(...white);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(15);
+        doc.text('ATTENDANCE REPORT', marginL, 12);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(147, 197, 253);
+        doc.text('Field Attendance Tracking System', marginL, 18);
+
+        // Right side: generated date
+        const genDate = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
+        doc.setTextColor(...white);
+        doc.setFontSize(7.5);
+        doc.text(`Generated: ${genDate}`, pageW - marginR, 12, { align: 'right' });
+
+        // ── Employee info block ──
+        let y = 36;
+        doc.setFillColor(...grey1);
+        doc.roundedRect(marginL, y, usableW, 20, 2, 2, 'F');
+        doc.setDrawColor(...grey2);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(marginL, y, usableW, 20, 2, 2, 'S');
+
+        // Avatar circle
+        doc.setFillColor(...blue);
+        doc.circle(marginL + 10, y + 10, 6, 'F');
+        const initials = user.name ? user.name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2) : 'U';
+        doc.setTextColor(...white);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7);
+        doc.text(initials, marginL + 10, y + 11.5, { align: 'center' });
+
+        doc.setTextColor(...black);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.text(user.name || '', marginL + 20, y + 8);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7.5);
+        doc.setTextColor(...grey3);
+        doc.text(`${user.email || ''}   ·   ${user.whatsapp || ''}`, marginL + 20, y + 14);
+
+        // ── Period + count summary pills ──
+        y += 26;
+        const fromVal = document.getElementById('filterFrom').value;
+        const toVal   = document.getElementById('filterTo').value;
+        const rangeText = (fromVal && toVal)
+            ? `${new Date(fromVal).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})} – ${new Date(toVal).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}`
+            : genDate;
+
+        // Pill 1 — entries count
+        doc.setFillColor(...blue);
+        doc.roundedRect(marginL, y, 44, 14, 2, 2, 'F');
+        doc.setTextColor(...white);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(13);
+        doc.text(String(filteredLogs.length), marginL + 22, y + 7.5, { align: 'center' });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.5);
+        doc.setTextColor(147, 197, 253);
+        doc.text('TOTAL ENTRIES', marginL + 22, y + 12, { align: 'center' });
+
+        // Pill 2 — period
+        doc.setFillColor(...grey1);
+        doc.setDrawColor(...grey2);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(marginL + 48, y, usableW - 48, 14, 2, 2, 'FD');
+        doc.setTextColor(...navy);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.text('PERIOD', marginL + 52, y + 5.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(...black);
+        doc.text(rangeText, marginL + 52, y + 11);
+
+        // ── TABLE ──
+        y += 20;
+
+        // Column definitions — widths in mm
+        const cols = [
+            { label: '#',          w: 10, key: 'sr'   },
+            { label: 'Date',       w: 28, key: 'date'  },
+            { label: 'Time',       w: 22, key: 'time'  },
+            { label: 'Site',       w: 44, key: 'site'  },
+            { label: 'Map Link',   w: usableW - 10 - 28 - 22 - 44, key: 'map' },
+        ];
+
+        const rowH   = 7;       // mm per row — keeps 30+ per page
+        const headH  = 8;
+        let   pageNum = 1;
+
+        function drawTableHeader(yPos) {
+            let x = marginL;
+            doc.setFillColor(...navy);
+            doc.rect(x, yPos, usableW, headH, 'F');
+            doc.setTextColor(...white);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7);
+            cols.forEach(col => {
+                doc.text(col.label, x + 2, yPos + 5.5);
+                x += col.w;
+            });
+            return yPos + headH;
+        }
+
+        function drawPageFooter() {
+            doc.setDrawColor(...grey2);
+            doc.setLineWidth(0.3);
+            doc.line(marginL, pageH - marginB - 4, pageW - marginR, pageH - marginB - 4);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6.5);
+            doc.setTextColor(...grey3);
+            doc.text('Attendance Manager  ·  Confidential', marginL, pageH - marginB);
+            doc.text(`Page ${pageNum}`, pageW - marginR, pageH - marginB, { align: 'right' });
+        }
+
+        y = drawTableHeader(y);
+
+        filteredLogs.forEach((log, i) => {
+            // Page break check — leave room for footer
+            if (y + rowH > pageH - marginB - 8) {
+                drawPageFooter();
+                doc.addPage();
+                pageNum++;
+                y = marginT;
+                // Repeat mini header on continuation pages
+                doc.setFillColor(...navy);
+                doc.rect(0, 0, pageW, 10, 'F');
+                doc.setTextColor(...white);
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(8);
+                doc.text('ATTENDANCE REPORT  (continued)', marginL, 7);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(7);
+                doc.setTextColor(147, 197, 253);
+                doc.text(user.name || '', pageW - marginR, 7, { align: 'right' });
+                y = 16;
+                y = drawTableHeader(y);
+            }
+
+            // Alternating row background
+            const isEven = i % 2 === 0;
+            doc.setFillColor(...(isEven ? white : grey1));
+            doc.rect(marginL, y, usableW, rowH, 'F');
+
+            // Bottom border
+            doc.setDrawColor(...grey2);
+            doc.setLineWidth(0.2);
+            doc.line(marginL, y + rowH, marginL + usableW, y + rowH);
+
+            const d    = new Date(log.time);
+            const dateStr = d.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+            const timeStr = d.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:true });
+
+            const values = {
+                sr:   String(i + 1),
+                date: dateStr,
+                time: timeStr,
+                site: log.desc || 'N/A',
+                map:  log.link || '',
+            };
+
+            let x = marginL;
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7);
+
+            cols.forEach(col => {
+                const cellW = col.w - 3;
+                let text = values[col.key];
+
+                if (col.key === 'sr') {
+                    doc.setTextColor(...grey3);
+                } else if (col.key === 'map') {
+                    // Draw as clickable hyperlink
+                    doc.setTextColor(...blue);
+                    const truncated = text.length > 42 ? text.slice(0, 42) + '…' : text;
+                    doc.textWithLink(truncated, x + 2, y + 4.8, { url: text });
+                    x += col.w;
+                    doc.setTextColor(...black);
+                    return;
+                } else {
+                    doc.setTextColor(...black);
+                }
+
+                // Truncate to fit cell width
+                const maxChars = Math.floor(cellW / 1.7);
+                if (text.length > maxChars) text = text.slice(0, maxChars - 1) + '…';
+                doc.text(text, x + 2, y + 4.8);
+                x += col.w;
+            });
+
+            y += rowH;
+        });
+
+        drawPageFooter();
+
+        // ── Save ──
+        const fname = `Attendance_${(user.name || 'Report').replace(/ /g,'_')}_${fromVal || 'all'}.pdf`;
+        doc.save(fname);
+        showToast('✅ PDF downloaded!');
+    }
+
     function exportCSV() {
         const user = JSON.parse(localStorage.getItem('user') || '{}');
-        const logs = JSON.parse(localStorage.getItem('logs') || '[]');
+        if (filteredLogs.length === 0) return showToast('⚠️ No records to export.');
         let csv = `Attendance Report — ${user.name}\nGenerated: ${new Date().toLocaleString('en-IN')}\n\n`;
         csv += 'Sr,Date & Time,Site,Latitude,Longitude,Map Link\n';
-        logs.forEach((l, i) => {
+        filteredLogs.forEach((l, i) => {
             csv += `${i+1},"${formatDateTime(l.time)}","${l.desc}","${l.lat || ''}","${l.lng || ''}","${l.link}"\n`;
         });
         const blob = new Blob([csv], { type: 'text/csv' });
