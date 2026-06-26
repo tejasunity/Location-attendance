@@ -508,7 +508,7 @@ ${mapLink}
                 <td style="color:#9ca3af;">${i + 1}</td>
                 <td>${formatDateTime(log.time)}</td>
                 <td>${log.desc}</td>
-                <td style="font-size:10px;word-break:break-all;color:#2563eb;">${log.link}</td>
+                <td style="font-size:11px;"><a href="${log.link}" target="_blank" style="color:#2563eb;font-weight:600;text-decoration:underline;">📍 Open Map</a></td>
             </tr>`;
         });
         html += `</table>`;
@@ -635,12 +635,13 @@ ${mapLink}
         y += 20;
 
         // Column definitions — widths in mm
+        // usableW = 186mm. Distribute: #=8, Date=26, Time=20, Site=42, Map=90
         const cols = [
-            { label: '#',          w: 10, key: 'sr'   },
-            { label: 'Date',       w: 28, key: 'date'  },
-            { label: 'Time',       w: 22, key: 'time'  },
-            { label: 'Site',       w: 44, key: 'site'  },
-            { label: 'Map Link',   w: usableW - 10 - 28 - 22 - 44, key: 'map' },
+            { label: '#',        w: 8,  key: 'sr'   },
+            { label: 'Date',     w: 26, key: 'date'  },
+            { label: 'Time',     w: 20, key: 'time'  },
+            { label: 'Site',     w: 42, key: 'site'  },
+            { label: 'Map Link', w: usableW - 8 - 26 - 20 - 42, key: 'map' },
         ];
 
         const rowH   = 7;       // mm per row — keeps 30+ per page
@@ -729,10 +730,22 @@ ${mapLink}
                 if (col.key === 'sr') {
                     doc.setTextColor(...grey3);
                 } else if (col.key === 'map') {
-                    // Draw as clickable hyperlink
+                    // Draw full URL as real clickable hyperlink — font 6 fits ~90mm col
+                    doc.setFontSize(6);
                     doc.setTextColor(...blue);
-                    const truncated = text.length > 42 ? text.slice(0, 42) + '…' : text;
-                    doc.textWithLink(truncated, x + 2, y + 4.8, { url: text });
+                    // Split URL across 2 lines if still too long (>72 chars)
+                    const maxLineChars = 68;
+                    if (text.length <= maxLineChars) {
+                        doc.textWithLink(text, x + 2, y + 4.8, { url: text });
+                    } else {
+                        // Break at a natural point (after the ?q= part)
+                        const breakAt = text.indexOf('?') > 0 ? text.indexOf('?') + 1 : maxLineChars;
+                        const line1 = text.slice(0, breakAt);
+                        const line2 = text.slice(breakAt);
+                        doc.textWithLink(line1, x + 2, y + 3.2, { url: text });
+                        doc.textWithLink(line2, x + 2, y + 6.2, { url: text });
+                    }
+                    doc.setFontSize(7);
                     x += col.w;
                     doc.setTextColor(...black);
                     return;
@@ -764,7 +777,8 @@ ${mapLink}
         let csv = `Attendance Report — ${user.name}\nGenerated: ${new Date().toLocaleString('en-IN')}\n\n`;
         csv += 'Sr,Date & Time,Site,Latitude,Longitude,Map Link\n';
         filteredLogs.forEach((l, i) => {
-            csv += `${i+1},"${formatDateTime(l.time)}","${l.desc}","${l.lat || ''}","${l.lng || ''}","${l.link}"\n`;
+            // Use =HYPERLINK() formula so Excel/Numbers renders it as a clickable link
+            csv += `${i+1},"${formatDateTime(l.time)}","${l.desc}","${l.lat || ''}","${l.lng || ''}","=HYPERLINK(""${l.link}"",""Open Map"")"\n`;
         });
         const blob = new Blob([csv], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
